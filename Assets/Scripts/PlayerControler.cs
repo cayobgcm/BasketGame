@@ -4,24 +4,31 @@ using System.Collections;
 public class PlayerControler : MonoBehaviour
 {
     private Rigidbody rigid;
-    public GameObject Cabeca;
-    public GameObject Perna;
+    public GameObject Cabeca;//Pivot da cabeça.
+    public GameObject Perna;//Pivot da perna.
+    public GameObject Braco;//Pivot dos braços com a main camera.
 
+    private float VelocidadeRotacaoCorpo; //Horizontal.
+    private float VelocidadeRotacaoVertical;//Vertical.
+    public bool clampVerticalRotation = true;
+
+    public bool PodePular;
+
+    private Quaternion CabecaRot;
+    private Quaternion BracoRot;
+
+    [SerializeField]
+    [Range(100, 1000)]
+    private float ForcaPulo = 300;
     [Range(1, 10)]
     public float VelocidadeAndarFrente = 7;
     [Range(1, 10)]
     public float VelocidadeAndarLado = 5;
 
-    private float VelocidadeRotacaoCorpo; //Horizontal.
-    private float VelocidadeRotacaoCabeca;//Vertical.
-    public bool clampVerticalRotation = true;
-
-    private Quaternion CabecaRot;
-
     [Range(0, 90)]
-    public float MaximumX = 20;
+    private float MaximumX = 40;
     [Range(-90, 0)]
-    public float MinimumX = -90;
+    private float MinimumX = -40;
 
     [Range(1, 5)]
     public float SensibilidadeMouseX = 2;
@@ -36,17 +43,19 @@ public class PlayerControler : MonoBehaviour
         rigid.constraints = RigidbodyConstraints.FreezeRotation;
 
         CabecaRot = Cabeca.transform.localRotation;
+        BracoRot = Braco.transform.localRotation;
     }
 
     // Update is called once per frame
     void Update()
     {
         this.RotacaoCorpo();
-        this.RotacaoCabeca();
+        this.RotacaoVertical();
         this.Movimentacao();
+        this.pular();
     }
 
-    private void Movimentacao()
+    private void Movimentacao()//Movimentação genérica do personagem.
     {
         Vector3 posicaoAtual = this.transform.position;
         Vector3 deslocamento;
@@ -90,17 +99,23 @@ public class PlayerControler : MonoBehaviour
             Perna.transform.localRotation = Quaternion.Euler(0, 45, 0);
         }
     }
-    
-    private void pular()
+
+    private void pular()//Pulo genérico do personagem.
     {
-        //TODO implements.
+        if (PodePular)
+        {
+            if (Input.GetKeyDown(KeyCode.Space))
+            {
+                rigid.AddForce(0, ForcaPulo, 0);
+                PodePular = false;
+            }
+        } 
     }
 
-    private void RotacaoCorpo()
+    private void RotacaoCorpo()//Rotação (Horizontal) genérica do corpo do personagem com o mouse. 
     {
         //Caso velocidadeRotacao... == 0 || null, as multiplicações a seguir dariam valor nulo.
         VelocidadeRotacaoCorpo = 50;
-        VelocidadeRotacaoCabeca = 50;
 
         //Retorna a posição do eixo X do mouse.
         VelocidadeRotacaoCorpo = Input.GetAxis("Mouse X") * (VelocidadeRotacaoCorpo * Time.deltaTime) * SensibilidadeMouseX;
@@ -109,21 +124,26 @@ public class PlayerControler : MonoBehaviour
 
     }
 
-    private void RotacaoCabeca()
+    private void RotacaoVertical()//Rotação (Vertical) genérica do corpo do personagem com o mouse. 
     {
-        VelocidadeRotacaoCabeca = Input.GetAxis("Mouse Y") * (VelocidadeRotacaoCabeca * Time.deltaTime) * SensibilidadeMouseY;
+        VelocidadeRotacaoVertical = 50;
+
+        VelocidadeRotacaoVertical = Input.GetAxis("Mouse Y") * (VelocidadeRotacaoVertical * Time.deltaTime) * SensibilidadeMouseY;
         //Cabeca.transform.Rotate(-VelocidadeRotacaoCabeca, 0, 0);
-        CabecaRot *= Quaternion.Euler(-VelocidadeRotacaoCabeca, 0f, 0f);
-        
+        CabecaRot *= Quaternion.Euler(-VelocidadeRotacaoVertical, 0f, 0f);
+        BracoRot *= Quaternion.Euler(-VelocidadeRotacaoVertical, 0f, 0f);
+
 
         if (clampVerticalRotation)
         {
             CabecaRot = LimiteDeRotacaoVertical(CabecaRot);
-        } 
+            BracoRot = LimiteDeRotacaoVertical(BracoRot);
+        }
         Cabeca.transform.localRotation = CabecaRot;
+        Braco.transform.localRotation = BracoRot;
     }
 
-    private Quaternion LimiteDeRotacaoVertical(Quaternion q)
+    private Quaternion LimiteDeRotacaoVertical(Quaternion q)//Função que define o limite de rotação vertical da cabeça e dos braços.
     {
         q.x /= q.w;
         q.y /= q.w;
@@ -137,5 +157,13 @@ public class PlayerControler : MonoBehaviour
         q.x = Mathf.Tan(0.5f * Mathf.Deg2Rad * angleX);
 
         return q;
+    }
+
+    private void OnCollisionEnter(Collision elementoColidido)//Função que detecta colisões em geral.
+    {
+        if (elementoColidido.gameObject.tag == "Chao")//Verifica se o personagem esta colidindo com o chão.
+        {
+            PodePular = true;
+        }
     }
 }
